@@ -19,7 +19,7 @@ export default function PrivacyModal({ isOpen, onClose }) {
                 Zero-Server Privacy Guarantee
               </h3>
               <p className="text-xs text-slate-500">
-                Engineered with ⚡ by infas.mk • Powered by WEB⚡BITS
+                Engineered with ⚡• Powered by WEB⚡BITS
               </p>
             </div>
           </div>
