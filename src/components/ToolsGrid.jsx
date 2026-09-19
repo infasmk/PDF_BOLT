@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Layers, Split, Minimize2, FileType, Presentation, Sheet, 
   FileText, PenTool, FileImage, Image, CheckSquare, Stamp, 
-  RotateCw, Code2, Unlock, ShieldCheck, LayoutGrid, FileCheck, 
+  RotateCw, Code2, ShieldCheck, LayoutGrid, FileCheck, 
   Wrench, Hash, Search as SearchIcon, Columns2, EyeOff, Crop,
   ArrowUpRight, Zap, Infinity as InfinityIcon
 } from 'lucide-react';
@@ -11,7 +11,7 @@ import { PDF_TOOLS, CATEGORIES } from '../data/toolsData';
 const ICON_MAP = {
   Layers, Split, Minimize2, FileType, Presentation, Sheet,
   FileText, PenTool, FileImage, Image, CheckSquare, Stamp,
-  RotateCw, Code2, Unlock, ShieldCheck, LayoutGrid, FileCheck,
+  RotateCw, Code2, ShieldCheck, LayoutGrid, FileCheck,
   Wrench, Hash, Search: SearchIcon, Columns2, EyeOff, Crop
 };
 

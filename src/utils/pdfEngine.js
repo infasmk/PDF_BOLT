@@ -1227,24 +1227,7 @@ export async function pdfToPowerpoint(file, onProgress = null) {
 }
 
 /* =========================================================================
-   8. UNLOCK PDF
-========================================================================= */
-export async function unlockPdf(file, password = '') {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdfDoc = await PDFDocument.load(arrayBuffer, {
-    password: password || undefined,
-    ignoreEncryption: !password
-  });
-
-  const bytes = await pdfDoc.save();
-  const blob = new Blob([bytes], { type: 'application/pdf' });
-  saveBlobAs(blob, `PDFBolt_Unlocked_${file.name}`);
-  fireConfetti();
-  return blob;
-}
-
-/* =========================================================================
-   9. CROP PDF (With Visual Page Preview & Per-Page Custom Styles)
+   8. CROP PDF (With Visual Page Preview & Per-Page Custom Styles)
 ========================================================================= */
 export async function cropPdf(file, cropOptions = { mode: 'all', globalMargins: { top: 30, bottom: 30, left: 30, right: 30 }, perPageMargins: {} }) {
   const arrayBuffer = await file.arrayBuffer();
@@ -1813,24 +1796,124 @@ export async function signPdf(file, signatureDataUrl, pageIndex = 0, coords = { 
   return blob;
 }
 
-export async function compressPdf(file) {
+export async function compressPdf(file, compressionPercent = 60, onProgress) {
+  const pct = Math.max(10, Math.min(90, Number(compressionPercent) || 60));
+  const normalized = (pct - 10) / 80; // 0 to 1
+
+  // Dynamic resolution scale and JPEG compression factor based on requested percentage
+  // 10% (light): scale ~1.65, quality ~0.88 (superb print quality, modest reduction)
+  // 50% (balanced): scale ~1.28, quality ~0.61 (balanced web/print quality, ~50-60% reduction)
+  // 90% (extreme): scale ~0.90, quality ~0.33 (maximum compression, ~75-85% reduction)
+  const renderScale = Math.max(0.85, 1.65 - (normalized * 0.75));
+  const quality = Math.max(0.25, 0.88 - (normalized * 0.55));
+
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const totalPages = pdf.numPages;
 
-  pdf.setTitle('');
-  pdf.setAuthor('');
-  pdf.setSubject('');
-  pdf.setKeywords([]);
-  pdf.setProducer('PDFBolt by WEB⚡BITS');
-  pdf.setCreator('PDFBolt');
+  const newPdf = await PDFDocument.create();
+  const helveticaFont = await newPdf.embedFont(StandardFonts.Helvetica);
 
-  const bytes = await pdf.save({
+  for (let i = 1; i <= totalPages; i++) {
+    if (onProgress) {
+      onProgress(i, totalPages);
+    }
+
+    const page = await pdf.getPage(i);
+    const originalViewport = page.getViewport({ scale: 1 });
+    const scaledViewport = page.getViewport({ scale: renderScale });
+
+    // Render page to canvas at calculated resolution scale
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(scaledViewport.width);
+    canvas.height = Math.floor(scaledViewport.height);
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+    // Encode rendered page to compressed JPEG matching the slider quality
+    const jpegDataUrl = canvas.toDataURL('image/jpeg', quality);
+    const embeddedImage = await newPdf.embedJpg(jpegDataUrl);
+
+    const newPage = newPdf.addPage([originalViewport.width, originalViewport.height]);
+    newPage.drawImage(embeddedImage, {
+      x: 0,
+      y: 0,
+      width: originalViewport.width,
+      height: originalViewport.height
+    });
+
+    // Extract selectable text layer and stamp invisibly (opacity: 0.001)
+    // so the compressed document remains 100% searchable and selectable!
+    try {
+      const textContent = await page.getTextContent();
+      if (textContent && textContent.items) {
+        for (const item of textContent.items) {
+          if (item.str && item.str.trim()) {
+            const cleanStr = cleanWinAnsiText(item.str);
+            if (cleanStr) {
+              const fontSize = Math.max(4, Math.min(60, item.height || 10));
+              newPage.drawText(cleanStr, {
+                x: Math.max(0, item.transform[4] || 0),
+                y: Math.max(0, item.transform[5] || 0),
+                size: fontSize,
+                font: helveticaFont,
+                color: rgb(0, 0, 0),
+                opacity: 0.001
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Non-critical text layer fallback
+    }
+
+    // Yield execution every 2 pages to keep UI responsive
+    if (i % 2 === 0) {
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  // Set clean metadata
+  newPdf.setProducer('PDFBolt by WEB⚡BITS');
+  newPdf.setCreator('PDFBolt');
+
+  const bytes = await newPdf.save({
     useObjectStreams: true,
     addDefaultPage: false
   });
 
-  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const originalSize = file.size;
+  let finalBytes = bytes;
+
+  // Safety fallback: if original was already smaller (e.g. tiny 5KB 1-line text doc),
+  // attempt stream optimization on the original and pick the smaller
+  if (bytes.length >= originalSize) {
+    try {
+      const fallbackPdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+      const streamBytes = await fallbackPdf.save({ useObjectStreams: true });
+      if (streamBytes.length < finalBytes.length) {
+        finalBytes = streamBytes;
+      }
+    } catch (e) {}
+  }
+
+  const compressedSize = finalBytes.length;
+  const savedBytes = Math.max(0, originalSize - compressedSize);
+  const percentReduced = Math.max(0, Math.round((savedBytes / originalSize) * 100));
+
+  const blob = new Blob([finalBytes], { type: 'application/pdf' });
   saveBlobAs(blob, `PDFBolt_Compressed_${file.name}`);
   fireConfetti();
-  return blob;
+
+  return {
+    blob,
+    originalSize,
+    compressedSize,
+    savedBytes,
+    percentReduced
+  };
 }

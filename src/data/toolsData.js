@@ -214,18 +214,6 @@ export const PDF_TOOLS = [
     multiple: false,
     fileSizeLimit: 'Unlimited'
   },
-  {
-    id: 'unlock',
-    title: 'Unlock PDF',
-    description: 'Remove PDF password security, giving you the freedom to use your PDFs as you want.',
-    category: 'optimize',
-    icon: 'Unlock',
-    badge: 'Decryption',
-    iconColor: 'text-blue-600 bg-blue-50',
-    accept: '.pdf',
-    multiple: false,
-    fileSizeLimit: 'Unlimited'
-  },
 
   // Row 4
   {

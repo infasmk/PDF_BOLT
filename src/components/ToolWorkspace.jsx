@@ -3,15 +3,16 @@ import {
   ArrowLeft, UploadCloud, Trash2, ArrowUp, ArrowDown, RotateCw, 
   CheckCircle2, Download, AlertCircle, Loader2, FileText, 
   Infinity as InfinityIcon, Plus, Type, Image as ImageIcon,
-  Crop, EyeOff, Unlock, Wrench, FileCheck, Search, ShieldCheck,
-  Columns2, Sparkles, ArrowRight, ArrowLeftRight, Check, Hash, Sliders, Eye
+  Crop, EyeOff, Wrench, FileCheck, Search, ShieldCheck,
+  Columns2, Sparkles, ArrowRight, ArrowLeftRight, Check, Hash, Sliders, Eye,
+  Percent, Gauge, Zap
 } from 'lucide-react';
 import { 
   mergePdfs, splitPdf, organizePdf, imagesToPdf, 
   pdfToImages, rotatePdf, watermarkPdf, addPageNumbers, 
   protectPdf, signPdf, compressPdf, renderPdfThumbnails, 
   editPdf, wordToPdf, pdfToWord, excelToPdf, pdfToExcel,
-  powerpointToPdf, pdfToPowerpoint, unlockPdf, cropPdf,
+  powerpointToPdf, pdfToPowerpoint, cropPdf,
   redactPdf, repairPdf, htmlToPdf, pdfToPdfA, ocrPdf,
   formatBytes, getPdfInfo, comparePdfs, renderSinglePdfThumbnail
 } from '../utils/pdfEngine';
@@ -24,6 +25,10 @@ export default function ToolWorkspace({ toolId, initialFiles, onClose }) {
   const [docInfo, setDocInfo] = useState(null);
   const [thumbnails, setThumbnails] = useState([]);
   const [pagesState, setPagesState] = useState([]);
+
+  // COMPRESS PDF tool states
+  const [compressionPercent, setCompressionPercent] = useState(60);
+  const [compressResult, setCompressResult] = useState(null);
   
   // ROTATE PDF tool states
   const [rotateMode, setRotateMode] = useState('all'); // 'all' | 'custom'
@@ -522,10 +527,6 @@ Doc B Snippet: ${p.textB.slice(0, 160)}...
         const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
         saveBlobAs(blob, `PDFBolt_Comparison_${files[0].name.replace(/\.pdf$/i, '')}_vs_${files[1].name.replace(/\.pdf$/i, '')}.txt`);
         fireConfetti();
-      } else if (toolId === 'unlock') {
-        if (!files[0]) throw new Error('Please upload a PDF file.');
-        setProgressText('Removing password and unlocking restrictions...');
-        await unlockPdf(files[0], password);
       } else if (toolId === 'redact') {
         if (!files[0]) throw new Error('Please upload a PDF file.');
         if (redactBoxes.length === 0) throw new Error('Please add at least one blackout redaction box.');
@@ -556,8 +557,11 @@ Doc B Snippet: ${p.textB.slice(0, 160)}...
         await signPdf(files[0], sigDataUrl, selectedSignPage - 1);
       } else if (toolId === 'compress') {
         if (!files[0]) throw new Error('Please upload a PDF file.');
-        setProgressText('Optimizing streams and objects...');
-        await compressPdf(files[0]);
+        setProgressText(`Analyzing document and preparing ${compressionPercent}% compression...`);
+        const result = await compressPdf(files[0], compressionPercent, (cur, total) => {
+          setProgressText(`Compressing page ${cur} of ${total} (${Math.round((cur / total) * 100)}%)...`);
+        });
+        setCompressResult(result);
       }
 
       setIsSuccess(true);
@@ -1157,18 +1161,144 @@ Doc B Snippet: ${p.textB.slice(0, 160)}...
                 </div>
               )}
 
-              {/* UNLOCK PDF WORKSPACE */}
-              {toolId === 'unlock' && (
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Password Decryption (Optional)</span>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter document password (if required to open)..."
-                    className="w-full px-4 py-2 rounded-xl bg-white border border-slate-300 text-sm"
-                  />
-                  <p className="text-xs text-slate-500">PDFBolt will decrypt the file and remove printing/copying/editing security restrictions.</p>
+              {/* COMPRESS PDF WORKSPACE */}
+              {toolId === 'compress' && (
+                <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-5">
+                  
+                  {/* Header: Document Info & Current Size */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Document Compression</span>
+                      <div className="flex items-center space-x-2 mt-0.5">
+                        <span className="text-sm font-black text-slate-900 truncate max-w-[240px] sm:max-w-xs">{files[0]?.name}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
+                          {docInfo?.pageCount || 1} {(docInfo?.pageCount || 1) === 1 ? 'page' : 'pages'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <div className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-right shadow-xs">
+                        <span className="text-[10px] font-bold text-slate-400 block uppercase">Original Size</span>
+                        <span className="text-sm font-black text-slate-800">{formatBytes(files[0]?.size || 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Main Scroll Bar / Slider Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Percent className="w-4 h-4 text-emerald-600" />
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                          Compression Level: <span className="text-sm font-black text-emerald-600">{compressionPercent}%</span>
+                        </label>
+                      </div>
+
+                      {/* Dynamic Quality Indicator Badge */}
+                      <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full border ${
+                        compressionPercent <= 35
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : compressionPercent <= 70
+                          ? 'bg-sky-50 text-sky-700 border-sky-200'
+                          : 'bg-purple-50 text-purple-700 border-purple-200'
+                      }`}>
+                        {compressionPercent <= 35
+                          ? '🟢 Light (Best Quality)'
+                          : compressionPercent <= 70
+                          ? '🔵 Balanced (Recommended)'
+                          : '🟣 Extreme (Smallest Size)'}
+                      </span>
+                    </div>
+
+                    {/* The Interactive Scroll Bar (Range Slider) */}
+                    <div className="relative pt-1 pb-2">
+                      <input
+                        type="range"
+                        min="10"
+                        max="90"
+                        step="5"
+                        value={compressionPercent}
+                        onChange={(e) => setCompressionPercent(parseInt(e.target.value, 10))}
+                        className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      />
+                      
+                      {/* Range Tick Labels */}
+                      <div className="flex justify-between text-[11px] font-bold text-slate-400 mt-2">
+                        <span className={compressionPercent <= 30 ? 'text-emerald-700' : ''}>10% (Low)</span>
+                        <span className={compressionPercent >= 45 && compressionPercent <= 65 ? 'text-sky-700 font-extrabold' : ''}>50% (Recommended)</span>
+                        <span className={compressionPercent >= 75 ? 'text-purple-700' : ''}>90% (Maximum)</span>
+                      </div>
+                    </div>
+
+                    {/* Quick Presets Buttons */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <span className="text-xs font-bold text-slate-500 mr-1">Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => setCompressionPercent(30)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer active:scale-95 ${
+                          compressionPercent === 30
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        Low (30%)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCompressionPercent(60)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer active:scale-95 ${
+                          compressionPercent === 60
+                            ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        ⭐ Balanced (60%)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCompressionPercent(85)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer active:scale-95 ${
+                          compressionPercent === 85
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        Extreme (85%)
+                      </button>
+                    </div>
+
+                    {/* Real-time Estimated Output Size Box */}
+                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                      <div className="flex items-center space-x-2 text-slate-600 font-medium">
+                        <Gauge className="w-4 h-4 text-sky-600 flex-shrink-0" />
+                        <span>Estimated Output Size:</span>
+                        <strong className="text-slate-900 font-bold">
+                          ~{formatBytes(Math.max(1024, (files[0]?.size || 0) * (1 - (compressionPercent * 0.85) / 100)))}
+                        </strong>
+                      </div>
+                      <span className="text-emerald-700 font-bold">
+                        Save ~{formatBytes(Math.max(0, (files[0]?.size || 0) * ((compressionPercent * 0.85) / 100)))}
+                      </span>
+                    </div>
+
+                    {/* Actual Compression Results Banner (if previously processed in this session) */}
+                    {compressResult && (
+                      <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                          <span>
+                            <strong>Successfully compressed!</strong> {formatBytes(compressResult.originalSize)} → <strong>{formatBytes(compressResult.compressedSize)}</strong>
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full bg-emerald-600 text-white font-extrabold text-[11px] self-start sm:self-auto">
+                          -{compressResult.percentReduced}% Smaller
+                        </span>
+                      </div>
+                    )}
+
+                  </div>
                 </div>
               )}
 
