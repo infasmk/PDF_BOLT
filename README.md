@@ -55,7 +55,7 @@ Because all PDF transformations (merging, splitting, watermarking, password encr
 
 ```bash
 # 1. Navigate to the project directory
-cd C:\Users\infas\.gemini\antigravity\scratch\pdfbolt
+locate ur file
 
 # 2. Install dependencies (already completed)
 npm install
