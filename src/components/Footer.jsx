@@ -34,7 +34,6 @@ export default function Footer({ onSelectTool, onOpenPrivacy, onOpenAdmin }) {
 
             {/* Founder & Team Highlight */}
             <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>By <strong className="text-sky-600">infas.mk</strong></span>
               <span className="text-slate-300">•</span>
               <span>Powered by <strong className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent font-extrabold">WEB⚡BITS</strong></span>
             </div>
