@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, X, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { verifyAdminLogin } from '../utils/syncService';
 
 export default function AdminLoginModal({ isOpen, onClose, onSuccess }) {
   const [password, setPassword] = useState('');
@@ -9,26 +10,29 @@ export default function AdminLoginModal({ isOpen, onClose, onSuccess }) {
 
   if (!isOpen) return null;
 
-  const expectedPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'webbits2026';
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!password.trim()) {
+      setError('Please enter the master admin password.');
+      return;
+    }
     setError('');
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      if (password.trim() === expectedPassword.trim()) {
-        try {
-          sessionStorage.setItem('pdfbolt_admin_session', 'true');
-        } catch (e) {}
+    try {
+      const result = await verifyAdminLogin(password);
+      if (result.success) {
         setPassword('');
         setIsSubmitting(false);
-        onSuccess();
+        onSuccess(result);
       } else {
-        setError('Invalid master password. Access denied.');
+        setError(result.error || 'Invalid master password. Access denied.');
         setIsSubmitting(false);
       }
-    }, 200);
+    } catch (err) {
+      setError('Connection failed. Please check your network or try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -116,9 +120,9 @@ export default function AdminLoginModal({ isOpen, onClose, onSuccess }) {
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
             <span className="flex items-center space-x-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Configurable in Vercel Env</span>
+              <span>Vercel Secret Env</span>
             </span>
-            <span className="font-mono text-[10px] text-slate-400">VITE_ADMIN_PASSWORD</span>
+            <span className="font-mono text-[10px] text-slate-400">ADMIN_PASSWORD</span>
           </div>
         </form>
 

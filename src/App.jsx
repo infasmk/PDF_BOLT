@@ -6,7 +6,7 @@ import Footer from './components/Footer';
 import NotificationBanner from './components/NotificationBanner';
 import LoadingScreen from './components/LoadingScreen';
 import { PDF_TOOLS } from './data/toolsData';
-import { subscribeGlobalConfig } from './utils/syncService';
+import { subscribeGlobalConfig, recordGlobalVisit } from './utils/syncService';
 
 // Lazy load heavy components to ensure instant initial landing page load
 const ToolWorkspace = lazy(() => import('./components/ToolWorkspace'));
@@ -86,14 +86,8 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.remove('dark');
 
-    // Visitor tracking: increment if first visit in this browser session
-    try {
-      if (!sessionStorage.getItem('pdfbolt_visited_session')) {
-        sessionStorage.setItem('pdfbolt_visited_session', 'true');
-        const currentVisits = parseInt(localStorage.getItem('pdfbolt_analytics_visits') || '0', 10);
-        localStorage.setItem('pdfbolt_analytics_visits', (currentVisits + 1).toString());
-      }
-    } catch (e) {}
+    // Global multi-device visitor tracking
+    recordGlobalVisit();
 
     // Check URL hash trigger: #admin
     if (window.location.hash === '#admin') {
@@ -117,8 +111,9 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
 
     // Global multi-user sync subscription (polls serverless API / KV for tool status & notifications)
-    const unsubscribe = subscribeGlobalConfig((config) => {
-      if (config) {
+    const unsubscribe = subscribeGlobalConfig((data) => {
+      if (data) {
+        const config = data.config || data;
         if (config.toolStatuses && Object.keys(config.toolStatuses).length > 0) {
           setToolStatuses(config.toolStatuses);
         }

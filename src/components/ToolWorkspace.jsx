@@ -17,6 +17,7 @@ import {
   formatBytes, getPdfInfo, comparePdfs, renderSinglePdfThumbnail
 } from '../utils/pdfEngine';
 import { PDF_TOOLS } from '../data/toolsData';
+import { recordGlobalProcess } from '../utils/syncService';
 
 export default function ToolWorkspace({ toolId, initialFiles, onClose }) {
   const tool = PDF_TOOLS.find(t => t.id === toolId) || PDF_TOOLS[0];
@@ -566,14 +567,8 @@ Doc B Snippet: ${p.textB.slice(0, 160)}...
 
       setIsSuccess(true);
 
-      // Track analytics in localStorage
-      try {
-        const pCount = parseInt(localStorage.getItem('pdfbolt_analytics_processed') || '0', 10);
-        localStorage.setItem('pdfbolt_analytics_processed', (pCount + 1).toString());
-        const usage = JSON.parse(localStorage.getItem('pdfbolt_analytics_tools_usage') || '{}');
-        usage[toolId] = (usage[toolId] || 0) + 1;
-        localStorage.setItem('pdfbolt_analytics_tools_usage', JSON.stringify(usage));
-      } catch (e) {}
+      // Track analytics globally across all devices
+      recordGlobalProcess(toolId);
     } catch (err) {
       console.error('Processing error:', err);
       setErrorMsg(err.message || 'An unexpected error occurred while processing.');

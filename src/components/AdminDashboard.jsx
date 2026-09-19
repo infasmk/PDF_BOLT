@@ -6,7 +6,7 @@ import {
   Sparkles, Gift, LogOut, Cloud, ExternalLink, Globe
 } from 'lucide-react';
 import { PDF_TOOLS, CATEGORIES } from '../data/toolsData';
-import { saveGlobalConfig, fetchGlobalConfig } from '../utils/syncService';
+import { saveGlobalConfig, fetchGlobalData, resetGlobalAnalytics } from '../utils/syncService';
 
 export default function AdminDashboard({ isOpen, onClose, onToolsChanged, onNotificationChanged, onLogout }) {
   const [activeTab, setActiveTab] = useState('tools'); // 'tools' | 'notifications' | 'analytics'
@@ -56,14 +56,23 @@ export default function AdminDashboard({ isOpen, onClose, onToolsChanged, onNoti
       const toolsUsage = JSON.parse(localStorage.getItem('pdfbolt_analytics_tools_usage') || '{}');
       setAnalytics({ visits, processed, toolsUsage });
 
-      // Fetch global config
-      const globalCfg = await fetchGlobalConfig();
-      if (globalCfg) {
-        if (globalCfg.toolStatuses && Object.keys(globalCfg.toolStatuses).length > 0) {
-          setToolStatuses(globalCfg.toolStatuses);
+      // Fetch fresh global config and global multi-device analytics
+      const globalData = await fetchGlobalData();
+      if (globalData) {
+        if (globalData.config) {
+          if (globalData.config.toolStatuses && Object.keys(globalData.config.toolStatuses).length > 0) {
+            setToolStatuses(globalData.config.toolStatuses);
+          }
+          if (globalData.config.notification) {
+            setNotification(globalData.config.notification);
+          }
         }
-        if (globalCfg.notification) {
-          setNotification(globalCfg.notification);
+        if (globalData.analytics) {
+          setAnalytics({
+            visits: globalData.analytics.visits !== undefined ? globalData.analytics.visits : visits,
+            processed: globalData.analytics.processed !== undefined ? globalData.analytics.processed : processed,
+            toolsUsage: globalData.analytics.toolsUsage || toolsUsage
+          });
         }
       }
     } catch (e) {
@@ -121,12 +130,17 @@ export default function AdminDashboard({ isOpen, onClose, onToolsChanged, onNoti
     syncChanges(toolStatuses, updated);
   };
 
-  const handleResetAnalytics = () => {
-    if (window.confirm('Are you sure you want to reset all visitor and tool usage analytics?')) {
-      localStorage.setItem('pdfbolt_analytics_visits', '1');
-      localStorage.setItem('pdfbolt_analytics_processed', '0');
-      localStorage.setItem('pdfbolt_analytics_tools_usage', JSON.stringify({}));
-      loadData();
+  const handleResetAnalytics = async () => {
+    if (window.confirm('Are you sure you want to reset all visitor and tool usage analytics globally across all devices?')) {
+      const res = await resetGlobalAnalytics();
+      if (res && res.analytics) {
+        setAnalytics(res.analytics);
+      } else {
+        localStorage.setItem('pdfbolt_analytics_visits', '1');
+        localStorage.setItem('pdfbolt_analytics_processed', '0');
+        localStorage.setItem('pdfbolt_analytics_tools_usage', JSON.stringify({}));
+        setAnalytics({ visits: 1, processed: 0, toolsUsage: {} });
+      }
     }
   };
 
