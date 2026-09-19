@@ -6,94 +6,67 @@ export default function Footer({ onSelectTool, onOpenPrivacy, onOpenAdmin }) {
     <footer className="mt-20 border-t border-slate-200 bg-white shadow-inner">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           
           {/* Brand Col */}
-          <div className="md:col-span-2 space-y-4">
+          <div className="col-span-2 space-y-3">
             <div className="flex items-center space-x-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <div className="flex items-center justify-center w-9 h-9">
-                <img
-                  src="/logo.png"
-                  alt="PDFBolt Logo"
-                  className="w-full h-full object-contain rounded-xl shadow-md shadow-sky-500/20"
-                />
+              <div className="flex items-center justify-center w-8 h-8">
+                <picture className="w-full h-full flex items-center justify-center">
+                  <source srcSet="/logo.webp" type="image/webp" />
+                  <img
+                    src="/logo.png"
+                    alt="PDFBolt Logo"
+                    width="32"
+                    height="32"
+                    className="w-full h-full object-contain rounded-xl shadow-sm"
+                  />
+                </picture>
               </div>
-              <span className="text-xl font-black tracking-tight text-slate-900">
+              <span className="text-lg font-black tracking-tight text-slate-900">
                 PDF<span className="text-sky-600">Bolt</span>
               </span>
             </div>
 
-            <p className="text-sm text-slate-600 max-w-sm leading-relaxed">
-              The high-performance, 100% private in-browser PDF suite. Edit, convert Word/Excel/PPT, merge, split, and sign PDFs with <strong>no file size limits</strong> and zero server storage.
+            <p className="text-xs text-slate-500 max-w-sm">
+              Free, client-side PDF suite with zero file size limits and zero server uploads.
             </p>
 
-            {/* Founder & Team Highlight Box */}
-            <div className="inline-flex flex-col sm:flex-row sm:items-center gap-2 p-3.5 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm">
-              <div className="flex items-center space-x-2 text-xs font-semibold text-slate-700">
-                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
-                <span>Founder:</span>
-                <span className="font-bold text-sky-600">infas.mk</span>
-              </div>
-              <span className="hidden sm:inline text-slate-300">•</span>
-              <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-700">
-                <span>Team:</span>
-                <span className="font-extrabold tracking-wide bg-gradient-to-r from-blue-600 via-sky-500 to-cyan-500 bg-clip-text text-transparent">
-                  WEB⚡BITS
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2 text-xs font-bold text-emerald-700">
-              <InfinityIcon className="w-4 h-4" />
-              <span>Unlimited File Size Guarantee</span>
+            {/* Founder & Team Highlight */}
+            <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <span>By <strong className="text-sky-600">infas.mk</strong></span>
+              <span className="text-slate-300">•</span>
+              <span>Powered by <strong className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent font-extrabold">WEB⚡BITS</strong></span>
             </div>
           </div>
 
-          {/* Convert to PDF */}
+          {/* Quick Tools */}
           <div>
-            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-3.5">
-              Convert to PDF
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3">
+              Tools
             </h4>
-            <ul className="space-y-2.5 text-xs font-semibold text-slate-600">
-              <li><button onClick={() => onSelectTool('word-to-pdf')} className="hover:text-sky-600 cursor-pointer">Word to PDF</button></li>
-              <li><button onClick={() => onSelectTool('excel-to-pdf')} className="hover:text-sky-600 cursor-pointer">Excel to PDF</button></li>
-              <li><button onClick={() => onSelectTool('powerpoint-to-pdf')} className="hover:text-sky-600 cursor-pointer">PowerPoint to PDF</button></li>
-              <li><button onClick={() => onSelectTool('images-to-pdf')} className="hover:text-sky-600 cursor-pointer">JPG to PDF</button></li>
-              <li><button onClick={() => onSelectTool('html-to-pdf')} className="hover:text-sky-600 cursor-pointer">HTML to PDF</button></li>
-            </ul>
-          </div>
-
-          {/* Convert from PDF */}
-          <div>
-            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-3.5">
-              Convert from PDF
-            </h4>
-            <ul className="space-y-2.5 text-xs font-semibold text-slate-600">
-              <li><button onClick={() => onSelectTool('pdf-to-word')} className="hover:text-sky-600 cursor-pointer">PDF to Word</button></li>
-              <li><button onClick={() => onSelectTool('pdf-to-excel')} className="hover:text-sky-600 cursor-pointer">PDF to Excel</button></li>
-              <li><button onClick={() => onSelectTool('pdf-to-powerpoint')} className="hover:text-sky-600 cursor-pointer">PDF to PowerPoint</button></li>
-              <li><button onClick={() => onSelectTool('pdf-to-images')} className="hover:text-sky-600 cursor-pointer">PDF to JPG</button></li>
-              <li><button onClick={() => onSelectTool('ocr')} className="hover:text-sky-600 cursor-pointer">OCR PDF</button></li>
-              <li><button onClick={() => onSelectTool('pdf-to-pdfa')} className="hover:text-sky-600 cursor-pointer">PDF to PDF/A</button></li>
-            </ul>
-          </div>
-
-          {/* Edit & Security */}
-          <div>
-            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-3.5">
-              Edit & Security
-            </h4>
-            <ul className="space-y-2.5 text-xs font-semibold text-slate-600">
-              <li><button onClick={() => onSelectTool('edit')} className="text-purple-600 font-bold hover:underline cursor-pointer">Edit PDF (Add Text/Image)</button></li>
-              <li><button onClick={() => onSelectTool('crop')} className="hover:text-sky-600 cursor-pointer">Crop PDF</button></li>
+            <ul className="space-y-2 text-xs text-slate-500 font-medium">
               <li><button onClick={() => onSelectTool('merge')} className="hover:text-sky-600 cursor-pointer">Merge PDF</button></li>
               <li><button onClick={() => onSelectTool('split')} className="hover:text-sky-600 cursor-pointer">Split PDF</button></li>
-              <li><button onClick={() => onSelectTool('redact')} className="hover:text-sky-600 cursor-pointer">Redact PDF</button></li>
-              <li><button onClick={() => onSelectTool('unlock')} className="hover:text-sky-600 cursor-pointer">Unlock PDF</button></li>
+              <li><button onClick={() => onSelectTool('edit')} className="text-purple-600 hover:underline cursor-pointer">Edit PDF</button></li>
+              <li><button onClick={() => onSelectTool('crop')} className="hover:text-sky-600 cursor-pointer">Crop PDF</button></li>
+              <li><button onClick={() => onSelectTool('compress')} className="hover:text-sky-600 cursor-pointer">Compress PDF</button></li>
+            </ul>
+          </div>
+
+          {/* Convert & Security */}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3">
+              Convert & Security
+            </h4>
+            <ul className="space-y-2 text-xs text-slate-500 font-medium">
+              <li><button onClick={() => onSelectTool('word-to-pdf')} className="hover:text-sky-600 cursor-pointer">Word to PDF</button></li>
+              <li><button onClick={() => onSelectTool('powerpoint-to-pdf')} className="hover:text-sky-600 cursor-pointer">PPT to PDF</button></li>
+              <li><button onClick={() => onSelectTool('excel-to-pdf')} className="hover:text-sky-600 cursor-pointer">Excel to PDF</button></li>
               <li><button onClick={() => onSelectTool('protect')} className="hover:text-sky-600 cursor-pointer">Protect PDF</button></li>
               <li><button onClick={onOpenPrivacy} className="text-emerald-700 hover:underline flex items-center space-x-1 cursor-pointer">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Zero-Server Privacy</span>
+                <span>Privacy Guarantee</span>
               </button></li>
             </ul>
           </div>

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 /**
  * PDFBolt 2.0 — Premium Electric Pulse Intro Animation
@@ -44,26 +44,28 @@ export default function LoadingScreen({ onFinish }) {
       return () => clearTimeout(t);
     }
 
-    // Pacing configurations
-    // First visit: 2.3s total; Repeat visit: 0.7s total
+    // Preload logo asset immediately
+    const preloader = new Image();
+    preloader.src = '/logo.webp';
+
+    // Fast, responsive pacing: under 650ms on first visit, 350ms on repeat visits
     const timings = isFirstVisit
-      ? { charge: 700, peak: 1600, shockwave: 2100, finish: 2800 }
-      : { charge: 150, peak: 350, shockwave: 550, finish: 1100 };
+      ? { charge: 120, peak: 280, shockwave: 420, finish: 580 }
+      : { charge: 60, peak: 150, shockwave: 230, finish: 320 };
 
     // Record that intro was seen
     try {
       sessionStorage.setItem('pdfbolt_seen_awakening', '1');
     } catch (e) {}
 
-    // Timeline sequences
+    // Fast timeline sequences
     const tCharge = setTimeout(() => {
       setPhase('charge');
-      if (isFirstVisit) setStatusText('Preparing PDF & Office tools...');
     }, timings.charge);
 
     const tPeak = setTimeout(() => {
       setPhase('peak');
-      setStatusText('Your workspace is ready.');
+      setStatusText('Ready.');
     }, timings.peak);
 
     const tShockwave = setTimeout(() => {
@@ -83,16 +85,10 @@ export default function LoadingScreen({ onFinish }) {
     };
   }, [isFirstVisit, prefersReducedMotion, onFinish]);
 
-  // Allow power users to click or press any key to skip immediately
+  // Instant skip on click or keypress
   const handleFastSkip = () => {
-    if (isSkipped || phase === 'shockwave' || phase === 'exit') return;
-    setIsSkipped(true);
-    setPhase('shockwave');
-    setStatusText('Your workspace is ready.');
-    setTimeout(() => {
-      setPhase('exit');
-      if (onFinish) onFinish();
-    }, 600);
+    setPhase('exit');
+    if (onFinish) onFinish();
   };
 
   useEffect(() => {
@@ -219,18 +215,23 @@ export default function LoadingScreen({ onFinish }) {
                 : '0 20px 50px -10px rgba(0, 0, 0, 0.5), 0 0 30px -5px rgba(56, 189, 248, 0.25)'
             }}
           >
-            {/* The Official PDFBolt Logo Asset */}
-            <img
-              src="/logo.png"
-              alt="PDFBolt Logo"
-              className={`w-full h-full object-contain rounded-2xl drop-shadow-2xl transition-all duration-500 ${
-                isPeakOrShockwave
-                  ? 'brightness-125 contrast-110 filter drop-shadow-[0_0_20px_#00f2fe]'
-                  : isCharging
-                  ? 'brightness-110'
-                  : 'brightness-95'
-              }`}
-            />
+            {/* The Official PDFBolt Logo Asset (Optimized WebP + PNG) */}
+            <picture className="w-full h-full flex items-center justify-center">
+              <source srcSet="/logo.webp" type="image/webp" />
+              <img
+                src="/logo.png"
+                alt="PDFBolt Logo"
+                loading="eager"
+                decoding="async"
+                className={`w-full h-full object-contain rounded-2xl drop-shadow-2xl transition-all duration-300 ${
+                  isPeakOrShockwave
+                    ? 'brightness-125 contrast-110 filter drop-shadow-[0_0_20px_#00f2fe]'
+                    : isCharging
+                    ? 'brightness-110'
+                    : 'brightness-95'
+                }`}
+              />
+            </picture>
 
             {/* Dynamic Electric Arcs & Top-to-Bottom Illumination Sweep */}
             <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">

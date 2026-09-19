@@ -10,11 +10,17 @@ export default function Navbar({ onOpenPrivacy, onSelectTool, onOpenAdmin }) {
           {/* Logo & Brand */}
           <div className="flex items-center space-x-3 sm:space-x-4 cursor-pointer" onClick={() => onSelectTool(null)}>
             <div className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11">
-              <img
-                src="/logo.png"
-                alt="PDFBolt Logo"
-                className="w-full h-full object-contain rounded-xl shadow-md shadow-sky-500/20 hover:scale-105 transition-transform"
-              />
+              <picture className="w-full h-full flex items-center justify-center">
+                <source srcSet="/logo.webp" type="image/webp" />
+                <img
+                  src="/logo.png"
+                  alt="PDFBolt Logo"
+                  width="44"
+                  height="44"
+                  loading="eager"
+                  className="w-full h-full object-contain rounded-xl shadow-md shadow-sky-500/20 hover:scale-105 transition-transform"
+                />
+              </picture>
               <span className="absolute -top-1 -right-1 flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-400"></span>

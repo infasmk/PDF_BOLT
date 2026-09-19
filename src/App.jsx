@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import ToolsGrid from './components/ToolsGrid';
-import ToolWorkspace from './components/ToolWorkspace';
-import PrivacyModal from './components/PrivacyModal';
-import AdminDashboard from './components/AdminDashboard';
-import AdminLoginModal from './components/AdminLoginModal';
-import NotificationBanner from './components/NotificationBanner';
 import Footer from './components/Footer';
+import NotificationBanner from './components/NotificationBanner';
 import LoadingScreen from './components/LoadingScreen';
 import { PDF_TOOLS } from './data/toolsData';
 import { subscribeGlobalConfig } from './utils/syncService';
+
+// Lazy load heavy components to ensure instant initial landing page load
+const ToolWorkspace = lazy(() => import('./components/ToolWorkspace'));
+const PrivacyModal = lazy(() => import('./components/PrivacyModal'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const AdminLoginModal = lazy(() => import('./components/AdminLoginModal'));
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -199,46 +201,54 @@ export default function App() {
         />
       </main>
 
-      {/* Active Tool Interactive Workspace */}
-      {activeToolId && (
-        <ToolWorkspace
-          toolId={activeToolId}
-          initialFiles={initialFiles}
-          onClose={handleCloseWorkspace}
-        />
-      )}
+      <Suspense fallback={null}>
+        {/* Active Tool Interactive Workspace */}
+        {activeToolId && (
+          <ToolWorkspace
+            toolId={activeToolId}
+            initialFiles={initialFiles}
+            onClose={handleCloseWorkspace}
+          />
+        )}
 
-      {/* Admin Password Login Modal */}
-      <AdminLoginModal
-        isOpen={isAdminLoginOpen}
-        onClose={() => {
-          setIsAdminLoginOpen(false);
-          if (window.location.hash === '#admin') {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-        }}
-        onSuccess={handleAdminLoginSuccess}
-      />
+        {/* Admin Password Login Modal */}
+        {isAdminLoginOpen && (
+          <AdminLoginModal
+            isOpen={isAdminLoginOpen}
+            onClose={() => {
+              setIsAdminLoginOpen(false);
+              if (window.location.hash === '#admin') {
+                window.history.replaceState(null, '', window.location.pathname);
+              }
+            }}
+            onSuccess={handleAdminLoginSuccess}
+          />
+        )}
 
-      {/* Admin & Visitor Analytics Control Center */}
-      <AdminDashboard
-        isOpen={isAdminDashboardOpen}
-        onClose={() => {
-          setIsAdminDashboardOpen(false);
-          if (window.location.hash === '#admin') {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-        }}
-        onToolsChanged={(updated) => setToolStatuses(updated)}
-        onNotificationChanged={(updated) => setNotification(updated)}
-        onLogout={handleAdminLogout}
-      />
+        {/* Admin & Visitor Analytics Control Center */}
+        {isAdminDashboardOpen && (
+          <AdminDashboard
+            isOpen={isAdminDashboardOpen}
+            onClose={() => {
+              setIsAdminDashboardOpen(false);
+              if (window.location.hash === '#admin') {
+                window.history.replaceState(null, '', window.location.pathname);
+              }
+            }}
+            onToolsChanged={(updated) => setToolStatuses(updated)}
+            onNotificationChanged={(updated) => setNotification(updated)}
+            onLogout={handleAdminLogout}
+          />
+        )}
 
-      {/* Privacy Guarantee Dialog */}
-      <PrivacyModal
-        isOpen={isPrivacyOpen}
-        onClose={() => setIsPrivacyOpen(false)}
-      />
+        {/* Privacy Guarantee Dialog */}
+        {isPrivacyOpen && (
+          <PrivacyModal
+            isOpen={isPrivacyOpen}
+            onClose={() => setIsPrivacyOpen(false)}
+          />
+        )}
+      </Suspense>
 
       {/* Branded Footer with Discrete Admin Lock Gateway */}
       <Footer

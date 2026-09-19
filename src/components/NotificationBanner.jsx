@@ -71,8 +71,8 @@ export default function NotificationBanner({ notification }) {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 max-w-md w-[calc(100vw-2.5rem)] animate-slideUp">
-      <div className="relative p-5 rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-2xl shadow-slate-900/15 overflow-hidden">
+    <div className="fixed bottom-4 left-3 right-3 sm:left-auto sm:right-5 sm:bottom-5 z-40 sm:max-w-md animate-slideUp">
+      <div className="relative p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-2xl shadow-slate-900/15 overflow-hidden">
         
         {/* Top color bar */}
         <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${config.bgGradient}`} />

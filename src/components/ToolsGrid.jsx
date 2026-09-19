@@ -47,26 +47,26 @@ export default function ToolsGrid({ onSelectTool, toolStatuses = {} }) {
   });
 
   return (
-    <section className="py-14 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+    <section className="py-8 sm:py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
       
       {/* Temporary Disabled Notice Banner */}
       {disabledNotice && (
-        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center justify-between shadow-md">
+        <div className="mb-6 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center justify-between shadow-sm">
           <span>⚠️ {disabledNotice}</span>
           <button onClick={() => setDisabledNotice(null)} className="text-amber-700 hover:text-amber-900 cursor-pointer">✕</button>
         </div>
       )}
 
       {/* Category Bar & Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-8 border-b border-slate-200">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         
-        {/* Category Tabs */}
-        <div className="flex items-center space-x-2 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+        {/* Category Tabs with smooth mobile horizontal scroll */}
+        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
-              className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
                 activeCategory === cat.id
                   ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/20'
                   : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200 shadow-sm'
@@ -78,20 +78,20 @@ export default function ToolsGrid({ onSelectTool, toolStatuses = {} }) {
         </div>
 
         {/* Search input */}
-        <div className="relative w-full md:w-80">
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <div className="relative w-full md:w-72">
+          <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search all 24+ PDF tools..."
-            className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all shadow-sm"
+            placeholder="Search tools..."
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all shadow-sm"
           />
         </div>
       </div>
 
       {/* Spacious Grid of Tools */}
-      <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-7">
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {filteredTools.map((tool) => {
           const IconComp = ICON_MAP[tool.icon] || Layers;
           const isEnabled = toolStatuses[tool.id] !== false;
@@ -100,9 +100,9 @@ export default function ToolsGrid({ onSelectTool, toolStatuses = {} }) {
             <div
               key={tool.id}
               onClick={() => handleToolClick(tool)}
-              className={`group relative flex flex-col justify-between p-7 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden ${
+              className={`group relative flex flex-col justify-between p-5 sm:p-6 rounded-2xl sm:rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden ${
                 isEnabled
-                  ? 'bg-white border-slate-200/90 hover:border-sky-400 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1'
+                  ? 'bg-white border-slate-200/90 hover:border-sky-400 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-0.5'
                   : 'bg-slate-100/80 border-dashed border-slate-300 opacity-60 hover:opacity-80'
               }`}
             >

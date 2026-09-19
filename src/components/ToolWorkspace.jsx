@@ -352,12 +352,15 @@ export default function ToolWorkspace({ toolId, initialFiles, onClose }) {
 
   // Signature canvas
   const startDrawing = (e) => {
+    if (e.touches && e.cancelable) e.preventDefault();
     const canvas = sigCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
-    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     ctx.strokeStyle = sigColor;
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
@@ -368,11 +371,14 @@ export default function ToolWorkspace({ toolId, initialFiles, onClose }) {
 
   const draw = (e) => {
     if (!isDrawing) return;
+    if (e.touches && e.cancelable) e.preventDefault();
     const canvas = sigCanvasRef.current;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
-    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     ctx.lineTo(x, y);
     ctx.stroke();
   };
@@ -577,42 +583,42 @@ Doc B Snippet: ${p.textB.slice(0, 160)}...
   const currentThumb = thumbnails.find(t => t.pageNumber === (toolId === 'crop' ? cropPage : editPage)) || thumbnails[0];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6">
+      <div className="relative w-full max-w-5xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[96vh] flex flex-col">
         
         {/* Modal Top Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/90">
-          <div className="flex items-center space-x-3">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-slate-50/90 flex-shrink-0">
+          <div className="flex items-center space-x-2.5 sm:space-x-3">
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-xl font-black text-slate-900">
+                <h2 className="text-lg sm:text-xl font-black text-slate-900">
                   {tool.title}
                 </h2>
-                <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                <span className="hidden sm:inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
                   <InfinityIcon className="w-3 h-3" />
-                  <span>No File Size Limit</span>
+                  <span>No Limit</span>
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 line-clamp-1">
                 {tool.description}
               </p>
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center space-x-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-            <ShieldCheck className="w-4 h-4" />
-            <span>100% In-Browser Privacy</span>
+          <div className="hidden sm:flex items-center space-x-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>100% In-Browser</span>
           </div>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 sm:p-8 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1">
 
           {/* HTML TO PDF Exception */}
           {toolId === 'html-to-pdf' ? (
@@ -1851,20 +1857,17 @@ Doc B Snippet: ${p.textB.slice(0, 160)}...
 
               {/* Success Alert */}
               {isSuccess && (
-                <div className="flex items-center space-x-2.5 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
-                  <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                  <div>
-                    <span className="font-bold">Completed! </span>
-                    <span>Your document was processed directly in your browser with zero limits and downloaded.</span>
-                  </div>
+                <div className="flex items-center space-x-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                  <span>Success! Your document is ready and downloaded.</span>
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div className="text-xs text-slate-500 flex items-center space-x-1.5">
-                  <InfinityIcon className="w-4 h-4 text-sky-600" />
-                  <span>Powered by WEB⚡BITS Engine • No File Size Limit</span>
+                  <InfinityIcon className="w-3.5 h-3.5 text-sky-600" />
+                  <span>100% In-Browser • Zero Limits</span>
                 </div>
 
                 <div className="flex items-center space-x-3 w-full sm:w-auto">
