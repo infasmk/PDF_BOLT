@@ -59,9 +59,7 @@ export default function AdminLoginModal({ isOpen, onClose, onSuccess }) {
               </span>
             </div>
           </div>
-          <p className="text-xs text-slate-300">
-            Enter your master administrator key to manage global tool availability, announcements, and visitor metrics.
-          </p>
+   
         </div>
 
         {/* Form Body */}
@@ -120,9 +118,9 @@ export default function AdminLoginModal({ isOpen, onClose, onSuccess }) {
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
             <span className="flex items-center space-x-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Vercel Secret Env</span>
+              <span>Secuerd By CLOUDFLARE</span>
             </span>
-            <span className="font-mono text-[10px] text-slate-400">ADMIN_PASSWORD</span>
+            <span className="font-mono text-[10px] text-slate-400"></span>
           </div>
         </form>
 
