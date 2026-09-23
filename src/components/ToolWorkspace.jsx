@@ -65,7 +65,17 @@ export default function ToolWorkspace({ toolId, initialFiles, onClose }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   
   // Image to PDF states
-  const [imagePageSize, setImagePageSize] = useState('a4');
+  const [imagePageSize, setImagePageSize] = useState('a4'); // 'original' | 'a4' | 'a3' | 'letter' | 'legal' | 'custom'
+  const [imageOrientation, setImageOrientation] = useState('auto'); // 'auto' | 'portrait' | 'landscape'
+  const [imageMargin, setImageMargin] = useState('normal'); // 'none' | 'small' | 'normal' | 'large'
+  const [imageFit, setImageFit] = useState('fit'); // 'fit' | 'fill'
+  const [imageCustomWidth, setImageCustomWidth] = useState(210);
+  const [imageCustomHeight, setImageCustomHeight] = useState(297);
+  const [imageCustomUnit, setImageCustomUnit] = useState('mm'); // 'mm' | 'pt'
+  const [imageGlobalRotation, setImageGlobalRotation] = useState(0); // 0 | 90 | 180 | 270
+  const [imageCustomRotations, setImageCustomRotations] = useState({}); // { [fileIdx]: degrees }
+  const [imageQualityPercent, setImageQualityPercent] = useState(75); // 10 to 100
+  const [imagePreviews, setImagePreviews] = useState([]); // array of preview URLs
   const [imageFormat, setImageFormat] = useState('png');
 
   // EDIT PDF tool states
@@ -171,6 +181,28 @@ export default function ToolWorkspace({ toolId, initialFiles, onClose }) {
     }
   }, [files, toolId]);
 
+  // Image to PDF preview generation
+  useEffect(() => {
+    if (toolId !== 'images-to-pdf' || !files || files.length === 0) {
+      setImagePreviews([]);
+      return;
+    }
+    const urls = files.map(file => {
+      try {
+        return URL.createObjectURL(file);
+      } catch (e) {
+        return '';
+      }
+    });
+    setImagePreviews(urls);
+
+    return () => {
+      urls.forEach(u => {
+        if (u) URL.revokeObjectURL(u);
+      });
+    };
+  }, [files, toolId]);
+
   // Handle file addition
   const handleAddFiles = (newFiles) => {
     if (tool.multiple) {
@@ -184,6 +216,17 @@ export default function ToolWorkspace({ toolId, initialFiles, onClose }) {
 
   const handleRemoveFile = (index) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
+    if (toolId === 'images-to-pdf') {
+      setImageCustomRotations(prev => {
+        const next = {};
+        Object.keys(prev).forEach(k => {
+          const ki = parseInt(k, 10);
+          if (ki < index) next[ki] = prev[ki];
+          else if (ki > index) next[ki - 1] = prev[ki];
+        });
+        return next;
+      });
+    }
   };
 
   const handleMoveFile = (index, direction) => {
@@ -194,6 +237,28 @@ export default function ToolWorkspace({ toolId, initialFiles, onClose }) {
     updated[index] = updated[targetIndex];
     updated[targetIndex] = temp;
     setFiles(updated);
+
+    if (toolId === 'images-to-pdf') {
+      setImageCustomRotations(prev => {
+        const next = { ...prev };
+        const rotA = next[index] || 0;
+        const rotB = next[targetIndex] || 0;
+        next[index] = rotB;
+        next[targetIndex] = rotA;
+        return next;
+      });
+    }
+  };
+
+  const handleRotateImage = (index) => {
+    setImageCustomRotations(prev => {
+      const cur = prev[index] || 0;
+      return { ...prev, [index]: (cur + 90) % 360 };
+    });
+  };
+
+  const handleRotateAllImages = (deg) => {
+    setImageGlobalRotation(deg);
   };
 
   // EDIT PDF Handlers
@@ -457,8 +522,21 @@ export default function ToolWorkspace({ toolId, initialFiles, onClose }) {
         });
       } else if (toolId === 'images-to-pdf') {
         if (files.length === 0) throw new Error('Please select at least 1 image.');
-        setProgressText('Converting images to PDF...');
-        await imagesToPdf(files, { pageSize: imagePageSize });
+        setProgressText('Preparing images for PDF conversion...');
+        await imagesToPdf(files, {
+          pageSize: imagePageSize,
+          orientation: imageOrientation,
+          margin: imageMargin,
+          fit: imageFit,
+          customWidth: imageCustomWidth,
+          customHeight: imageCustomHeight,
+          customUnit: imageCustomUnit,
+          globalRotation: imageGlobalRotation,
+          imageRotations: imageCustomRotations,
+          qualityPercent: imageQualityPercent
+        }, (cur, total, msg) => {
+          setProgressText(msg || `Processing image ${cur} of ${total}...`);
+        });
       } else if (toolId === 'pdf-to-images') {
         if (!files[0]) throw new Error('Please upload a PDF file.');
         await pdfToImages(files[0], imageFormat, 2.0, (cur, total) => {
@@ -1334,6 +1412,454 @@ Doc B Snippet: ${p.textB.slice(0, 160)}...
                       />
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* =========================================================================
+                  IMAGES TO PDF WORKSPACE (Paper size, Orientation, Margins, Rotate, File Size % Slider)
+              ========================================================================= */}
+              {toolId === 'images-to-pdf' && (
+                <div className="space-y-6">
+
+                  {/* Section 1: Paper Size & Page Setup */}
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-5">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                            1. Paper Size & Page Layout
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Select paper dimensions, orientation, and margin layout
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200 uppercase">
+                        {imagePageSize.toUpperCase()}
+                      </span>
+                    </div>
+
+                    {/* Paper Size Grid */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        Paper Size:
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                        {[
+                          { id: 'original', label: 'Original', sub: 'Fit Image Size' },
+                          { id: 'a4', label: 'A4', sub: '210 × 297 mm' },
+                          { id: 'a3', label: 'A3', sub: '297 × 420 mm' },
+                          { id: 'letter', label: 'US Letter', sub: '8.5 × 11 in' },
+                          { id: 'legal', label: 'US Legal', sub: '8.5 × 14 in' },
+                          { id: 'custom', label: 'Custom', sub: 'Manual Size' }
+                        ].map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setImagePageSize(p.id)}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                              imagePageSize === p.id
+                                ? 'border-sky-500 bg-sky-50/80 shadow-xs ring-2 ring-sky-500/20'
+                                : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className={`text-xs font-bold ${imagePageSize === p.id ? 'text-sky-700' : 'text-slate-900'}`}>
+                                {p.label}
+                              </span>
+                              {imagePageSize === p.id && (
+                                <Check className="w-3.5 h-3.5 text-sky-600" />
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-500 mt-1">{p.sub}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Custom Dimensions Form */}
+                    {imagePageSize === 'custom' && (
+                      <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-3 animate-fadeIn">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700">Custom Dimensions:</span>
+                          <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-bold">
+                            <button
+                              type="button"
+                              onClick={() => setImageCustomUnit('mm')}
+                              className={`px-2.5 py-1 rounded-md cursor-pointer transition-all ${
+                                imageCustomUnit === 'mm' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
+                              }`}
+                            >
+                              Millimeters (mm)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setImageCustomUnit('pt')}
+                              className={`px-2.5 py-1 rounded-md cursor-pointer transition-all ${
+                                imageCustomUnit === 'pt' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
+                              }`}
+                            >
+                              Points (pt)
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[11px] font-semibold text-slate-600 block mb-1">Width ({imageCustomUnit}):</label>
+                            <input
+                              type="number"
+                              min="10"
+                              max="5000"
+                              value={imageCustomWidth}
+                              onChange={(e) => setImageCustomWidth(Math.max(10, Number(e.target.value)))}
+                              className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-xs font-bold text-slate-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-semibold text-slate-600 block mb-1">Height ({imageCustomUnit}):</label>
+                            <input
+                              type="number"
+                              min="10"
+                              max="5000"
+                              value={imageCustomHeight}
+                              onChange={(e) => setImageCustomHeight(Math.max(10, Number(e.target.value)))}
+                              className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-xs font-bold text-slate-900"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Orientation & Margins (when not Original) */}
+                    {imagePageSize !== 'original' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-200">
+                        
+                        {/* Orientation */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 block">Orientation:</label>
+                          <div className="grid grid-cols-3 gap-1 p-1 bg-white rounded-xl border border-slate-200">
+                            {[
+                              { id: 'auto', label: 'Auto' },
+                              { id: 'portrait', label: 'Portrait' },
+                              { id: 'landscape', label: 'Landscape' }
+                            ].map(o => (
+                              <button
+                                key={o.id}
+                                type="button"
+                                onClick={() => setImageOrientation(o.id)}
+                                className={`py-1.5 px-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                                  imageOrientation === o.id
+                                    ? 'bg-sky-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                {o.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Margin */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 block">Page Margin:</label>
+                          <div className="grid grid-cols-4 gap-1 p-1 bg-white rounded-xl border border-slate-200">
+                            {[
+                              { id: 'none', label: 'None' },
+                              { id: 'small', label: '5 mm' },
+                              { id: 'normal', label: '12 mm' },
+                              { id: 'large', label: '20 mm' }
+                            ].map(m => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => setImageMargin(m.id)}
+                                className={`py-1.5 px-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                                  imageMargin === m.id
+                                    ? 'bg-sky-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Fit Mode */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 block">Image Fit:</label>
+                          <div className="grid grid-cols-2 gap-1 p-1 bg-white rounded-xl border border-slate-200">
+                            {[
+                              { id: 'fit', label: 'Fit (Ratio)' },
+                              { id: 'fill', label: 'Fill (Bleed)' }
+                            ].map(f => (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => setImageFit(f.id)}
+                                className={`py-1.5 px-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                                  imageFit === f.id
+                                    ? 'bg-sky-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                {f.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* Section 2: Image Gallery, Reordering & Rotation */}
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                          <RotateCw className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                            2. Image Rotation & Sequence ({files.length})
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Rotate individual images or all images, reorder pages, or remove photos
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Global Rotate Buttons */}
+                      <div className="flex items-center space-x-1.5 self-start sm:self-auto">
+                        <span className="text-[11px] font-bold text-slate-500 mr-1">Rotate All:</span>
+                        {[0, 90, 180, 270].map(deg => (
+                          <button
+                            key={deg}
+                            type="button"
+                            onClick={() => handleRotateAllImages(deg)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                              imageGlobalRotation === deg
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'bg-white border border-slate-200 text-slate-700 hover:bg-indigo-50'
+                            }`}
+                          >
+                            {deg === 0 ? '0°' : `${deg}°`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Interactive Image Grid with live rotated thumbnail preview */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-80 overflow-y-auto p-2 bg-white rounded-xl border border-slate-200">
+                      {files.map((file, idx) => {
+                        const customRot = imageCustomRotations[idx] || 0;
+                        const effectiveRot = (((imageGlobalRotation || 0) + customRot) % 360 + 360) % 360;
+                        const previewUrl = imagePreviews[idx];
+
+                        return (
+                          <div
+                            key={`${file.name}-${file.size}-${idx}`}
+                            className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between shadow-xs hover:border-indigo-300 transition-all"
+                          >
+                            {/* Top Bar: Sequence # and Angle Badge */}
+                            <div className="flex items-center justify-between w-full mb-1.5">
+                              <span className="px-1.5 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[10px] font-black">
+                                #{idx + 1}
+                              </span>
+                              {effectiveRot > 0 && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-700 text-[10px] font-bold">
+                                  {effectiveRot}°
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Thumbnail Container */}
+                            <div className="w-full h-28 flex items-center justify-center overflow-hidden bg-slate-100 rounded-lg p-1">
+                              {previewUrl ? (
+                                <img
+                                  src={previewUrl}
+                                  alt={file.name}
+                                  className="max-h-full max-w-full object-contain transition-transform duration-200"
+                                  style={{ transform: `rotate(${effectiveRot}deg)` }}
+                                />
+                              ) : (
+                                <ImageIcon className="w-8 h-8 text-slate-400" />
+                              )}
+                            </div>
+
+                            {/* Title & Size */}
+                            <div className="mt-2 w-full truncate">
+                              <p className="text-[11px] font-bold text-slate-800 truncate" title={file.name}>
+                                {file.name}
+                              </p>
+                              <p className="text-[10px] text-slate-500">{formatBytes(file.size)}</p>
+                            </div>
+
+                            {/* Action Buttons: Rotate Individual Image, Move Up/Down, Remove */}
+                            <div className="mt-2 pt-2 border-t border-slate-200/80 flex items-center justify-between w-full">
+                              <button
+                                type="button"
+                                onClick={() => handleRotateImage(idx)}
+                                className="px-2 py-1 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold flex items-center space-x-1 cursor-pointer transition-colors"
+                                title="Rotate this image 90° clockwise"
+                              >
+                                <RotateCw className="w-3 h-3" />
+                                <span>Rotate</span>
+                              </button>
+
+                              <div className="flex items-center space-x-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveFile(idx, -1)}
+                                  disabled={idx === 0}
+                                  className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                                  title="Move earlier"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveFile(idx, 1)}
+                                  disabled={idx === files.length - 1}
+                                  className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                                  title="Move later"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveFile(idx)}
+                                  className="p-1 rounded text-rose-500 hover:bg-rose-50 cursor-pointer"
+                                  title="Remove image"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Section 3: File Size & Quality Slider (% Scroll Bar) */}
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                          <Gauge className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                            3. PDF File Size & Compression Slider
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Prevent huge PDF file sizes with smart canvas downsampling and quality control
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Current Percentage Readout */}
+                      <div className="flex items-center space-x-2 self-start sm:self-auto">
+                        <span className="text-base font-black text-slate-900 font-mono">
+                          {imageQualityPercent}%
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                            imageQualityPercent <= 40
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : imageQualityPercent <= 80
+                              ? 'bg-sky-100 text-sky-800'
+                              : imageQualityPercent < 100
+                              ? 'bg-indigo-100 text-indigo-800'
+                              : 'bg-slate-200 text-slate-800'
+                          }`}
+                        >
+                          {imageQualityPercent <= 40
+                            ? 'Smallest Size'
+                            : imageQualityPercent <= 80
+                            ? 'Balanced (Recommended)'
+                            : imageQualityPercent < 100
+                            ? 'High Quality'
+                            : 'Original (Uncompressed)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* The % Scroll Bar Slider */}
+                    <div className="space-y-2 pt-1">
+                      <div className="relative flex items-center">
+                        <input
+                          type="range"
+                          min="10"
+                          max="100"
+                          step="5"
+                          value={imageQualityPercent}
+                          onChange={(e) => setImageQualityPercent(Number(e.target.value))}
+                          className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600 focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex justify-between text-[11px] font-bold text-slate-400 px-0.5">
+                        <span>10% (Ultra Compact)</span>
+                        <span className="text-sky-600">75% (Balanced Default)</span>
+                        <span>100% (Original Bytes)</span>
+                      </div>
+                    </div>
+
+                    {/* Preset Buttons */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { pct: 35, label: 'Smallest File', desc: '~85% Smaller' },
+                        { pct: 75, label: '⭐ Balanced', desc: 'Crisp & Compact' },
+                        { pct: 90, label: 'High Fidelity', desc: 'Near Lossless' },
+                        { pct: 100, label: 'Original', desc: '100% Raw Bytes' }
+                      ].map(preset => (
+                        <button
+                          key={preset.pct}
+                          type="button"
+                          onClick={() => setImageQualityPercent(preset.pct)}
+                          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                            imageQualityPercent === preset.pct
+                              ? 'border-sky-500 bg-sky-50 text-sky-900 font-bold shadow-xs'
+                              : 'border-slate-200 bg-white hover:bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          <div className="text-xs font-bold">{preset.label} ({preset.pct}%)</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">{preset.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Real-time Estimated Output Size Box */}
+                    {(() => {
+                      const totalInputBytes = files.reduce((acc, f) => acc + (f.size || 0), 0);
+                      const ratio = imageQualityPercent >= 100 ? 0.95 : Math.max(0.10, (imageQualityPercent / 100) * 0.45);
+                      const estOutBytes = Math.round(totalInputBytes * ratio);
+                      const savedBytes = Math.max(0, totalInputBytes - estOutBytes);
+                      const savedPct = totalInputBytes > 0 ? Math.round((savedBytes / totalInputBytes) * 100) : 0;
+
+                      return (
+                        <div className="p-3.5 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center space-x-2 text-slate-600 font-medium">
+                            <Gauge className="w-4 h-4 text-sky-600 flex-shrink-0" />
+                            <span>Input: <strong>{formatBytes(totalInputBytes)}</strong> ➔ Estimated PDF:</span>
+                            <strong className="text-slate-900 font-bold">~{formatBytes(estOutBytes)}</strong>
+                          </div>
+                          <span className="text-emerald-700 font-bold">
+                            Save ~{formatBytes(savedBytes)} (-{savedPct}%)
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                  </div>
+
                 </div>
               )}
 

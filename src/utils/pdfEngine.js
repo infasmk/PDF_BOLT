@@ -1481,41 +1481,252 @@ export async function organizePdf(file, pagesState) {
   return blob;
 }
 
-export async function imagesToPdf(imageFiles, options = { pageSize: 'fit', margin: 20 }) {
-  if (!imageFiles || imageFiles.length === 0) throw new Error('Please select at least one image.');
+/**
+ * Internal helper to process and compress an image with canvas rotation and dimension optimization
+ */
+async function processImageForPdf(imgFile, rotationAngle = 0, qualityPercent = 75) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(imgFile);
+    const img = new Image();
+
+    img.onload = () => {
+      try {
+        const isPng = imgFile.type && imgFile.type.includes('png');
+        const origW = img.naturalWidth || img.width;
+        const origH = img.naturalHeight || img.height;
+        const normAngle = ((rotationAngle % 360) + 360) % 360;
+        const isSwapped = normAngle === 90 || normAngle === 270;
+
+        // If 100% quality, no rotation, and native JPG/PNG, return original arrayBuffer directly
+        if (qualityPercent >= 100 && normAngle === 0 && (imgFile.type === 'image/jpeg' || imgFile.type === 'image/jpg' || isPng)) {
+          imgFile.arrayBuffer().then(buf => {
+            URL.revokeObjectURL(objectUrl);
+            resolve({
+              buffer: buf,
+              width: origW,
+              height: origH,
+              isPng,
+              isDirect: true
+            });
+          }).catch(() => {
+            // Fall back to canvas if arrayBuffer read fails
+          });
+          return;
+        }
+
+        // Calculate max dimension cap based on quality setting to eliminate huge multi-megabyte PDFs
+        let maxDimension = 3200;
+        if (qualityPercent <= 30) maxDimension = 1100;
+        else if (qualityPercent <= 50) maxDimension = 1500;
+        else if (qualityPercent <= 75) maxDimension = 2200;
+        else if (qualityPercent <= 90) maxDimension = 2800;
+
+        let scale = 1;
+        const maxCurrent = Math.max(origW, origH);
+        if (qualityPercent < 100 && maxCurrent > maxDimension) {
+          scale = maxDimension / maxCurrent;
+        }
+
+        const scaledW = Math.max(1, Math.round(origW * scale));
+        const scaledH = Math.max(1, Math.round(origH * scale));
+
+        const canvasW = isSwapped ? scaledH : scaledW;
+        const canvasH = isSwapped ? scaledW : scaledH;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasW;
+        canvas.height = canvasH;
+        const ctx = canvas.getContext('2d');
+
+        // Non-PNG or opaque: fill white background for clean document aesthetics
+        if (!isPng) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvasW, canvasH);
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        // Apply rotation around center
+        ctx.translate(canvasW / 2, canvasH / 2);
+        ctx.rotate((normAngle * Math.PI) / 180);
+        ctx.drawImage(img, -scaledW / 2, -scaledH / 2, scaledW, scaledH);
+
+        // JPEG compression factor: map 10-100% to 0.15 - 0.95
+        const qFactor = Math.max(0.15, Math.min(0.96, qualityPercent / 100));
+        const outputMime = isPng ? 'image/png' : 'image/jpeg';
+
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(objectUrl);
+          if (!blob) {
+            reject(new Error(`Failed to process image: ${imgFile.name}`));
+            return;
+          }
+          blob.arrayBuffer().then(buf => {
+            resolve({
+              buffer: buf,
+              width: canvasW,
+              height: canvasH,
+              isPng: outputMime === 'image/png',
+              size: blob.size,
+              isDirect: false
+            });
+          }).catch(reject);
+        }, outputMime, qFactor);
+      } catch (err) {
+        URL.revokeObjectURL(objectUrl);
+        reject(err);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error(`Failed to load image "${imgFile.name}". Please ensure it is a valid JPG, PNG, or WebP image.`));
+    };
+
+    img.src = objectUrl;
+  });
+}
+
+export async function imagesToPdf(imageFiles, options = {}, onProgress = null) {
+  if (!imageFiles || imageFiles.length === 0) {
+    throw new Error('Please select at least one image.');
+  }
+
+  const {
+    pageSize = 'a4', // 'original' | 'a4' | 'a3' | 'letter' | 'legal' | 'custom'
+    orientation = 'auto', // 'auto' | 'portrait' | 'landscape'
+    margin = 'normal', // 'none' | 'small' | 'normal' | 'large' or number in pt
+    fit = 'fit', // 'fit' | 'fill'
+    customWidth = 210,
+    customHeight = 297,
+    customUnit = 'mm', // 'mm' | 'pt'
+    globalRotation = 0,
+    imageRotations = {},
+    qualityPercent = 75
+  } = options;
+
   const pdfDoc = await PDFDocument.create();
+  const totalImages = imageFiles.length;
 
-  for (const imgFile of imageFiles) {
-    const arrayBuffer = await imgFile.arrayBuffer();
+  // Standard paper dimensions in points (72 points = 1 inch, 25.4 mm = 1 inch)
+  const MM_TO_PT = 72 / 25.4; // ~2.83465
+  const PAPER_SIZES = {
+    a4: [595.28, 841.89],
+    a3: [841.89, 1190.55],
+    letter: [612.0, 792.0],
+    legal: [612.0, 1008.0]
+  };
+
+  // Resolve margin in points
+  let marginPt = 34.0; // normal (~12mm)
+  if (pageSize === 'original') {
+    marginPt = 0;
+  } else if (typeof margin === 'number') {
+    marginPt = margin;
+  } else if (margin === 'none') {
+    marginPt = 0;
+  } else if (margin === 'small') {
+    marginPt = 14.17; // ~5mm
+  } else if (margin === 'normal') {
+    marginPt = 34.0; // ~12mm
+  } else if (margin === 'large') {
+    marginPt = 56.7; // ~20mm
+  }
+
+  for (let idx = 0; idx < totalImages; idx++) {
+    const imgFile = imageFiles[idx];
+    if (onProgress) {
+      onProgress(idx + 1, totalImages, `Optimizing image ${idx + 1} of ${totalImages} (${qualityPercent}% quality)...`);
+    }
+
+    // Calculate effective rotation angle
+    const customRot = imageRotations[idx] || 0;
+    const effectiveAngle = (((globalRotation || 0) + customRot) % 360 + 360) % 360;
+
+    // Process image with canvas downsampling and rotation
+    const processed = await processImageForPdf(imgFile, effectiveAngle, qualityPercent);
+
+    // Embed into PDF document
     let embeddedImg;
-
-    if (imgFile.type && imgFile.type.includes('png')) {
-      embeddedImg = await pdfDoc.embedPng(arrayBuffer);
+    if (processed.isPng) {
+      try {
+        embeddedImg = await pdfDoc.embedPng(processed.buffer);
+      } catch (e) {
+        // If PNG embed fails (e.g. malformed chunks), fall back to JPG
+        embeddedImg = await pdfDoc.embedJpg(processed.buffer);
+      }
     } else {
-      embeddedImg = await pdfDoc.embedJpg(arrayBuffer);
+      embeddedImg = await pdfDoc.embedJpg(processed.buffer);
     }
 
-    const imgDims = embeddedImg.scale(1);
+    const imgW = processed.width;
+    const imgH = processed.height;
 
-    if (options.pageSize === 'a4') {
-      const a4Width = 595.28;
-      const a4Height = 841.89;
-      const page = pdfDoc.addPage([a4Width, a4Height]);
-      const margin = options.margin || 20;
-      const maxWidth = a4Width - margin * 2;
-      const maxHeight = a4Height - margin * 2;
-
-      const scale = Math.min(maxWidth / imgDims.width, maxHeight / imgDims.height, 1);
-      const drawWidth = imgDims.width * scale;
-      const drawHeight = imgDims.height * scale;
-      const x = (a4Width - drawWidth) / 2;
-      const y = (a4Height - drawHeight) / 2;
-
-      page.drawImage(embeddedImg, { x, y, width: drawWidth, height: drawHeight });
-    } else {
-      const page = pdfDoc.addPage([imgDims.width, imgDims.height]);
-      page.drawImage(embeddedImg, { x: 0, y: 0, width: imgDims.width, height: imgDims.height });
+    // Case 1: Original paper size (page perfectly fits the image)
+    if (pageSize === 'original') {
+      const page = pdfDoc.addPage([imgW, imgH]);
+      page.drawImage(embeddedImg, { x: 0, y: 0, width: imgW, height: imgH });
+      continue;
     }
+
+    // Case 2: Standard or Custom paper size
+    let baseWidth, baseHeight;
+    if (pageSize === 'custom') {
+      const factor = customUnit === 'pt' ? 1 : MM_TO_PT;
+      baseWidth = (Number(customWidth) || 210) * factor;
+      baseHeight = (Number(customHeight) || 297) * factor;
+    } else {
+      const stdSize = PAPER_SIZES[pageSize] || PAPER_SIZES.a4;
+      baseWidth = stdSize[0];
+      baseHeight = stdSize[1];
+    }
+
+    // Determine page orientation
+    let pageW, pageH;
+    if (orientation === 'landscape') {
+      pageW = Math.max(baseWidth, baseHeight);
+      pageH = Math.min(baseWidth, baseHeight);
+    } else if (orientation === 'portrait') {
+      pageW = Math.min(baseWidth, baseHeight);
+      pageH = Math.max(baseWidth, baseHeight);
+    } else {
+      // Auto: match the aspect ratio of the image
+      if (imgW > imgH) {
+        pageW = Math.max(baseWidth, baseHeight);
+        pageH = Math.min(baseWidth, baseHeight);
+      } else {
+        pageW = Math.min(baseWidth, baseHeight);
+        pageH = Math.max(baseWidth, baseHeight);
+      }
+    }
+
+    // Compute printable dimensions subtracting margins
+    const printableW = Math.max(20, pageW - marginPt * 2);
+    const printableH = Math.max(20, pageH - marginPt * 2);
+
+    let drawW, drawH;
+    if (fit === 'fill') {
+      // Scale to cover printable area
+      const scale = Math.max(printableW / imgW, printableH / imgH);
+      drawW = imgW * scale;
+      drawH = imgH * scale;
+    } else {
+      // Fit to printable area preserving aspect ratio (default)
+      const scale = Math.min(printableW / imgW, printableH / imgH);
+      drawW = imgW * scale;
+      drawH = imgH * scale;
+    }
+
+    const x = marginPt + (printableW - drawW) / 2;
+    const y = marginPt + (printableH - drawH) / 2;
+
+    const page = pdfDoc.addPage([pageW, pageH]);
+    page.drawImage(embeddedImg, { x, y, width: drawW, height: drawH });
+  }
+
+  if (onProgress) {
+    onProgress(totalImages, totalImages, 'Finalizing PDF document...');
   }
 
   const bytes = await pdfDoc.save();
